@@ -77,11 +77,51 @@ make test-integration   # only if CIRCT is already installed
 ## CI
 
 - `.github/workflows/ci.yml`
-  - validates `3.14t` free-threaded runtime (`sys._is_gil_enabled() == False`),
-  - runs lint, mypy, and non-integration tests,
-  - intentionally avoids full CIRCT source builds.
+  - always runs a fast host job (`lint-type-test`) on `3.14t`,
+  - explicitly asserts:
+    - Python major/minor is `3.14`,
+    - `Py_GIL_DISABLED == 1`,
+    - `sys._is_gil_enabled() == False`,
+  - runs lint, mypy, and non-integration tests in the host job.
+- `.github/workflows/ci.yml` also runs a required `circt-integration` job:
+  - runs inside a prebuilt CIRCT container image from GHCR,
+  - re-asserts free-threading + GIL-disabled runtime,
+  - fails hard if `circt` import or real dialect-op smoke checks fail,
+  - runs `pytest -m integration`.
 - `.github/workflows/docker-base.yml`
-  - manual workflow for building the heavy base image.
+  - builds and publishes the heavy CIRCT base image (the only place full CIRCT source builds occur),
+  - triggers on:
+    - manual dispatch,
+    - pushes to `main` that touch `docker/base/**` or CIRCT bootstrap/build scripts,
+  - publishes tags:
+    - immutable commit SHA tag (`sha-<fullsha>`),
+    - rolling `main` tag for default CI consumption,
+  - includes OCI labels and minimal provenance metadata.
+
+### Why this split
+
+- PR/push CI gets real CIRCT execution as a required signal.
+- Normal CI avoids repeated source builds and stays practical/fast.
+- Heavy build cost is paid once in the base-image pipeline and reused by CI.
+
+## Run CIRCT integration in the same container model locally
+
+Use the same image reference pattern as CI:
+
+```bash
+make test-integration-container
+```
+
+Useful overrides:
+
+```bash
+make test-integration-container CIRCT_BASE_IMAGE=ghcr.io/<owner>/<repo>-circt-base:main
+```
+
+This runs:
+- free-threading + GIL-disabled assertions,
+- CIRCT import + dialect-op smoke check,
+- `pytest -m integration`.
 
 ## Project structure
 
