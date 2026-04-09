@@ -44,9 +44,34 @@ def test_build_hello_module_errors_when_circt_unavailable() -> None:
 
 
 @pytest.mark.integration
+def test_circt_real_dialect_ops_integration() -> None:
+    import circt
+    from circt.dialects import comb, hw
+    from circt.ir import Context, InsertionPoint, IntegerType, Location, Module
+
+    with Context() as ctx, Location.unknown():
+        circt.register_dialects(ctx)
+        module = Module.create()
+        i4 = IntegerType.get_signless(4)
+        with InsertionPoint(module.body):
+            def body_builder(op: Any) -> dict[str, Any]:
+                xor = comb.XorOp.create(op.a, op.b)
+                return {"c": xor}
+
+            hw.HWModuleOp(
+                name="integration_smoke",
+                input_ports=[("a", i4), ("b", i4)],
+                output_ports=[("c", i4)],
+                body_builder=body_builder,
+            )
+
+    mlir = str(module)
+    assert "hw.module @integration_smoke" in mlir
+    assert "comb.xor" in mlir
+
+
+@pytest.mark.integration
 def test_build_hello_module_integration() -> None:
-    circt = pytest.importorskip("circt")
-    _ = circt
     mlir = build_hello_module()
     assert "hw.module @magic" in mlir
     assert "comb.xor" in mlir
@@ -54,8 +79,6 @@ def test_build_hello_module_integration() -> None:
 
 @pytest.mark.integration
 def test_build_hello_module_custom_integration() -> None:
-    circt = pytest.importorskip("circt")
-    _ = circt
     mlir = build_hello_module(HelloConfig(width=8, module_name="hello"))
     assert "hw.module @hello" in mlir
     assert "i8" in mlir

@@ -1,8 +1,9 @@
 SHELL := /usr/bin/env bash
 PYTHON ?= .venv/bin/python
 CIRCT_DIR ?= ./circt
+CIRCT_BASE_IMAGE ?= ghcr.io/$${GITHUB_OWNER:-$$(git config --get remote.origin.url | sed -E 's#.*github.com[:/ ]([^/]+)/.*#\1#')}/$$(basename -s .git $$(git config --get remote.origin.url))-circt-base:main
 
-.PHONY: bootstrap-python setup verify-free-threading install-circt lint typecheck test test-integration format run clean
+.PHONY: bootstrap-python setup verify-free-threading install-circt lint typecheck test test-integration test-integration-container format run clean
 
 bootstrap-python:
 	./scripts/bootstrap_python314t.sh
@@ -27,6 +28,13 @@ test:
 
 test-integration:
 	$(PYTHON) -m pytest -m integration
+
+test-integration-container:
+	docker run --rm \
+		-v "$(PWD):/workspace" \
+		-w /workspace \
+		$(CIRCT_BASE_IMAGE) \
+		bash -lc 'python3.14t -m pip install --upgrade pip && python3.14t -m pip install -e .[dev] && bash ./scripts/run_circt_integration.sh python3.14t'
 
 format:
 	$(PYTHON) -m ruff check src tests --fix
