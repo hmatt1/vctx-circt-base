@@ -58,3 +58,7 @@ python_version = "3.14"
 strict = true
 files = ["src", "tests"]
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["circt", "circt.*"]
+ignore_missing_imports = true

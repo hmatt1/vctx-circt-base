@@ -7,6 +7,8 @@ ARG CIRCT_REF=main
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    g++ \
+    libstdc++-13-dev \
     ca-certificates \
     clang \
     cmake \
@@ -23,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ninja-build \
     pkg-config \
     python3 \
+    python3-dev \
     python3-pip \
     tk-dev \
     uuid-dev \
@@ -40,14 +43,36 @@ RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PY
   && ln -sf /opt/python-3.14t/bin/python3.14 /opt/python-3.14t/bin/python3.14t
 
 ENV PATH="/opt/python-3.14t/bin:${PATH}"
+ENV PYTHON_GIL=0
 
 WORKDIR /opt/circt
-RUN git clone --depth 1 --branch "${CIRCT_REF}" "${CIRCT_REPO}" . \
-  && git submodule update --init --recursive
+RUN git clone --branch "${CIRCT_REF}" "${CIRCT_REPO}" . \
+  && git submodule update --init --recursive \
+  && git fetch --tags
 
 RUN python3.14t -m pip install --upgrade pip setuptools wheel \
-  && python3.14t -m pip install lib/Bindings/Python
+  && python3.14t -m pip install nanobind pyyaml numpy pybind11
 
-RUN python3.14t -c "import circt; print('CIRCT ready')"
+RUN cmake -S llvm/llvm -B build-python -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/circt/install-python \
+    -DLLVM_ENABLE_PROJECTS=mlir \
+    -DLLVM_EXTERNAL_PROJECTS=circt \
+    -DLLVM_EXTERNAL_CIRCT_SOURCE_DIR=/opt/circt \
+    -DLLVM_TARGETS_TO_BUILD=host \
+    -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+    -DCIRCT_BINDINGS_PYTHON_ENABLED=ON \
+    -DPython_ROOT_DIR=/opt/python-3.14t \
+    -DPython_EXECUTABLE=/opt/python-3.14t/bin/python3.14t \
+    -DPython3_ROOT_DIR=/opt/python-3.14t \
+    -DPython3_EXECUTABLE=/opt/python-3.14t/bin/python3.14t \
+    -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project \
+  && cmake --build build-python --target install-CIRCTPythonModules -- -j"$(nproc)"
+
+RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
+  && mkdir -p "$PY_SITE" \
+  && printf '%s\n' '/opt/circt/install-python/python_packages/circt_core' > "$PY_SITE/circt_local.pth"
+
+RUN python3.14t -c "import sys, circt; print('CIRCT ready; gil enabled:', sys._is_gil_enabled())"
 
 WORKDIR /workspace

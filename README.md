@@ -2,13 +2,18 @@
 
 A practical, minimal, robust starter project that generates a tiny CIRCT module from Python using the official CIRCT bindings pattern.
 
+## Core policy
+
+- **Always run free-threaded Python (`3.14t`) with GIL disabled.**
+- **Build CIRCT from source only once** when creating the base image; do not repeatedly compile CIRCT in normal local/CI workflows.
+
 ## What this gives you
 
 - Python package + CLI (`circt-hello`) that prints MLIR.
 - Python `3.14t` (free-threaded CPython) bootstrap scripts.
+- A strict free-threading verification target (`make verify-free-threading`).
 - Tests that run without CIRCT installed, plus integration tests when CIRCT is present.
-- GitHub Actions CI (lint, typecheck, unit test on `3.14t`).
-- Optional integration workflow that builds/installs CIRCT bindings.
+- GitHub Actions CI (lint, typecheck, unit test on `3.14t`, with runtime free-threading assertion).
 - GitHub Codespaces devcontainer pinned to `3.14t`.
 - Reusable Docker base image with CIRCT preinstalled.
 
@@ -20,50 +25,45 @@ A practical, minimal, robust starter project that generates a tiny CIRCT module 
 make setup
 ```
 
-This will:
-- build/install `python3.14t` under `~/.local/python-3.14t` if missing,
-- create `.venv`,
-- install this project in editable mode with dev dependencies.
-
-Activate your env:
+Activate env and verify free-threading:
 
 ```bash
 source .venv/bin/activate
-python -VV
+make verify-free-threading
 ```
 
-You should see `3.14` and a free-threaded build.
+Expected: `gil_enabled= False`.
 
-### 2) Install CIRCT bindings
-
-Clone CIRCT and install from `lib/Bindings/Python`:
-
-```bash
-git clone https://github.com/llvm/circt.git
-cd circt
-git submodule update --init --recursive
-cd ..
-./scripts/install_circt_bindings.sh ./circt
-```
-
-### 3) Run hello world
+### 2) Run hello world (without requiring local CIRCT build)
 
 ```bash
 make run
 ```
 
-Or with custom args:
+If CIRCT bindings are absent, you get a clear guidance error. Standard workflows should use the base image below.
+
+## Build CIRCT once (base image)
 
 ```bash
-.venv/bin/circt-hello --width 8 --module-name hello
+./scripts/build_base_image.sh
 ```
 
-## Expected output
+This is the **intended single place** where the full CIRCT source build happens.
 
-You should get MLIR with a hardware module that XORs two inputs, similar to:
+Image includes:
+- Ubuntu 24.04 build toolchain,
+- Python `3.14t` with `PYTHON_GIL=0`,
+- full CIRCT checkout + submodules,
+- CIRCT Python bindings preinstalled and import-tested.
 
-- `hw.module @magic(...)`
-- `comb.xor`
+## Optional: explicit local CIRCT source build
+
+Only for exceptional cases. Disabled by default to prevent accidental long builds.
+
+```bash
+./scripts/clone_circt.sh ./circt
+BUILD_CIRCT_FROM_SOURCE=1 ./scripts/install_circt_bindings.sh ./circt
+```
 
 ## Development commands
 
@@ -71,45 +71,23 @@ You should get MLIR with a hardware module that XORs two inputs, similar to:
 make lint
 make typecheck
 make test
-make test-integration   # requires circt bindings installed
+make test-integration   # only if CIRCT is already installed
 ```
 
 ## CI
 
 - `.github/workflows/ci.yml`
-  - `lint-type-test`: runs on push/PR using `actions/setup-python` with `3.14t`.
-  - `integration-circt`: manual (`workflow_dispatch`) because CIRCT source build/install is heavy.
+  - validates `3.14t` free-threaded runtime (`sys._is_gil_enabled() == False`),
+  - runs lint, mypy, and non-integration tests,
+  - intentionally avoids full CIRCT source builds.
 - `.github/workflows/docker-base.yml`
-  - manually builds the Docker base image.
-
-## Codespaces
-
-- `.devcontainer/` compiles Python `3.14t` inside container and runs `./scripts/setup_env.sh --skip-bootstrap` on create.
-- Recommended VS Code extensions included (Python, Pylance, Ruff).
-
-## Docker base image
-
-Build locally:
-
-```bash
-./scripts/build_base_image.sh
-```
-
-Image includes:
-- Ubuntu 24.04 build toolchain,
-- Python `3.14t`,
-- CIRCT repo checkout + installed Python bindings.
+  - manual workflow for building the heavy base image.
 
 ## Project structure
 
 - `src/circt_hello/hello.py`: CIRCT hello-world builder.
 - `src/circt_hello/cli.py`: CLI entrypoint.
 - `tests/`: unit and integration tests.
-- `scripts/`: bootstrap/install helpers.
+- `scripts/`: bootstrap and image/build helpers.
 - `docker/base/Dockerfile`: CIRCT-ready base image.
 - `.devcontainer/`: Codespaces/devcontainer setup.
-
-## Notes
-
-- CIRCT bindings are installed from source (official path) rather than a stable prebuilt PyPI package.
-- Unit tests are designed to remain useful even when CIRCT is not installed.
