@@ -57,13 +57,16 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
         )
         from circt.passmanager import PassManager
         try:
-            from circt.dialects import func  # pyright: ignore
+            from circt.mlir.dialects import func  # pyright: ignore
         except ImportError:
-            # Some CIRCT builds don't ship Python bindings for func.
             try:
-                func = importlib.import_module("circt.dialects._func_ops_gen")
+                from circt.dialects import func  # pyright: ignore
             except ImportError:
-                func = SimpleNamespace(__name__="func")
+                # Some CIRCT builds don't ship Python bindings for func.
+                try:
+                    func = importlib.import_module("circt.dialects._func_ops_gen")
+                except ImportError:
+                    func = SimpleNamespace(__name__="func")
     except ImportError as exc:  # pragma: no cover - exercised in tests via monkeypatch
         msg = (
             "CIRCT Python bindings are unavailable. Build/install from llvm/circt "
