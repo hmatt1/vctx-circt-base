@@ -52,7 +52,7 @@ jobs:
 
   circt-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     permissions:
       contents: read
       packages: read
@@ -69,21 +69,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Wait for CIRCT base image
+      - name: Resolve CIRCT base image
         run: |
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 10); do
             if docker pull "$CIRCT_BASE_IMAGE"; then
+              echo "RESOLVED_CIRCT_IMAGE=$CIRCT_BASE_IMAGE" >> "$GITHUB_ENV"
               exit 0
             fi
 
-            echo "Image not available yet ($attempt/30): $CIRCT_BASE_IMAGE"
+            echo "Image not available yet ($attempt/10): $CIRCT_BASE_IMAGE"
             echo "Retrying in 60 seconds..."
             sleep 60
           done
 
-          echo "Timed out waiting for $CIRCT_BASE_IMAGE to become available."
-          echo "Ensure .github/workflows/docker-base.yml successfully publishes the 'main' tag."
-          exit 1
+          echo "CIRCT base image still unavailable after retries."
+          echo "Building local fallback image for this run..."
+          docker build -f docker/base/Dockerfile -t "circt-fallback:${GITHUB_SHA}" .
+          echo "RESOLVED_CIRCT_IMAGE=circt-fallback:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
       - name: CIRCT integration checks
         run: |
@@ -91,7 +93,7 @@ jobs:
             -e PYTHON_GIL=0 \
             -v "$PWD:/workspace" \
             -w /workspace \
-            "$CIRCT_BASE_IMAGE" \
+            "$RESOLVED_CIRCT_IMAGE" \
             bash -lc '
               python3.14t -m pip install --upgrade pip
               python3.14t -m pip install -e .[dev]
