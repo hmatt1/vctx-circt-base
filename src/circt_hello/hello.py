@@ -34,6 +34,7 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
 
     try:
         import importlib
+        from types import SimpleNamespace
 
         import circt
         from circt.dialects import arc, comb, hw, hwarith, seq  # pyright: ignore
@@ -58,8 +59,11 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
         try:
             from circt.dialects import func  # pyright: ignore
         except ImportError:
-            # Some CIRCT builds don't re-export func from circt.dialects.
-            func = importlib.import_module("circt.dialects._func_ops_gen")
+            # Some CIRCT builds don't ship Python bindings for func.
+            try:
+                func = importlib.import_module("circt.dialects._func_ops_gen")
+            except ImportError:
+                func = SimpleNamespace(__name__="func")
     except ImportError as exc:  # pragma: no cover - exercised in tests via monkeypatch
         msg = (
             "CIRCT Python bindings are unavailable. Build/install from llvm/circt "
