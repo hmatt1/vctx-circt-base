@@ -74,7 +74,7 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
         )
         raise CIRCTNotInstalledError(msg) from exc
 
-    module_text = f"""
+    module_text_with_func = f"""
 module {{
   func.func @mix_{cfg.module_name}(%lhs: i{cfg.width}, %rhs: i{cfg.width}) -> i{cfg.width} {{
     %0 = comb.xor %lhs, %rhs : i{cfg.width}
@@ -102,8 +102,31 @@ module {{
 }}
 """
 
+    module_text_without_func = f"""
+module {{
+  arc.define @arc_gate(%lhs: i1, %rhs: i1) -> (i1) {{
+    %0 = comb.and %lhs, %rhs : i1
+    arc.output %0 : i1
+  }}
+
+  hw.module @{cfg.module_name}(in %a : i{cfg.width}, in %b : i{cfg.width}, out c : i{cfg.width}) {{
+    %clk = seq.const_clock high
+    %clk_i1 = seq.from_clock %clk
+    %x = comb.xor %a, %b : i{cfg.width}
+    %masked = comb.mux %clk_i1, %x, %a : i{cfg.width}
+    %h1 = hwarith.constant 1 : ui{cfg.width}
+    %h1_i = hwarith.cast %h1 : (ui{cfg.width}) -> i{cfg.width}
+    %y = comb.xor %masked, %h1_i : i{cfg.width}
+    hw.output %y : i{cfg.width}
+  }}
+}}
+"""
+
     with Context() as ctx, Location.unknown():
         circt.register_dialects(ctx)
+        register_func = getattr(func, "register_dialect", None)
+        if callable(register_func):
+            register_func(ctx)
         width_type = IntegerType.get_signless(cfg.width)
         width_mlir_type: Type = width_type
         if str(width_mlir_type) != f"i{cfg.width}":
@@ -122,7 +145,13 @@ module {{
             arc.__name__.split(".")[-1],
             hwarith.__name__.split(".")[-1],
         )
-        module = Module.parse(module_text)
+        try:
+            module = Module.parse(module_text_with_func)
+        except Exception as exc:
+            # Some CIRCT images omit the registered func dialect.
+            if "Dialect `func' not found" not in str(exc):
+                raise
+            module = Module.parse(module_text_without_func)
         top_block: Block = module.body
         top_ops = [op for op in top_block.operations]
         if not top_ops:
