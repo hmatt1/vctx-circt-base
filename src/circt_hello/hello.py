@@ -33,26 +33,33 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
     _validate_config(cfg)
 
     try:
+        import importlib
+
         import circt
+        from circt.dialects import arc, comb, hw, hwarith, seq  # pyright: ignore
         from circt.ir import (  # pyright: ignore
+            ArrayAttr,
+            Attribute,
+            Block,
             Context,
+            DictAttr,
+            FlatSymbolRefAttr,
             InsertionPoint,
+            IntegerAttr,
             IntegerType,
             Location,
             Module,
-            Value,
-            Type,
-            Block,
             Operation,
-            IntegerAttr,
-            DictAttr,
             StringAttr,
-            ArrayAttr,
-            Attribute,
-            FlatSymbolRefAttr,
+            Type,
+            Value,
         )
-        from circt.dialects import hw, seq, comb, func, arc, hwarith  # pyright: ignore
         from circt.passmanager import PassManager
+        try:
+            from circt.dialects import func  # pyright: ignore
+        except ImportError:
+            # Some CIRCT builds don't re-export func from circt.dialects.
+            func = importlib.import_module("circt.dialects._func_ops_gen")
     except ImportError as exc:  # pragma: no cover - exercised in tests via monkeypatch
         msg = (
             "CIRCT Python bindings are unavailable. Build/install from llvm/circt "
@@ -96,8 +103,18 @@ module {{
             msg = "width type parsing mismatch"
             raise RuntimeError(msg)
 
-        # Keep explicit references to all requested dialect modules.
-        dialect_modules = (hw, seq, comb, func, arc, hwarith)
+        if func.__name__.endswith("_func_ops_gen"):
+            func_name = "func"
+        else:
+            func_name = func.__name__.split(".")[-1]
+        dialect_names = (
+            hw.__name__.split(".")[-1],
+            seq.__name__.split(".")[-1],
+            comb.__name__.split(".")[-1],
+            func_name,
+            arc.__name__.split(".")[-1],
+            hwarith.__name__.split(".")[-1],
+        )
         module = Module.parse(module_text)
         top_block: Block = module.body
         top_ops = [op for op in top_block.operations]
@@ -116,9 +133,7 @@ module {{
             {
                 "module_name": StringAttr.get(cfg.module_name),
                 "width": IntegerAttr.get(IntegerType.get_signless(32), cfg.width),
-                "dialects": ArrayAttr.get(
-                    [StringAttr.get(mod.__name__.split(".")[-1]) for mod in dialect_modules]
-                ),
+                "dialects": ArrayAttr.get([StringAttr.get(name) for name in dialect_names]),
                 "arc_symbol": FlatSymbolRefAttr.get("arc_gate"),
                 "note": note_attr,
             }
