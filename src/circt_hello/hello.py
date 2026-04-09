@@ -64,7 +64,9 @@ def build_hello_module(config: HelloConfig | None = None) -> str:
 module {{
   func.func @mix_{cfg.module_name}(%lhs: i{cfg.width}, %rhs: i{cfg.width}) -> i{cfg.width} {{
     %0 = comb.xor %lhs, %rhs : i{cfg.width}
-    %1 = hwarith.cast %0 : (i{cfg.width}) -> i{cfg.width}
+    %h1 = hwarith.constant 1 : ui{cfg.width}
+    %h1_i = hwarith.cast %h1 : (ui{cfg.width}) -> i{cfg.width}
+    %1 = comb.xor %0, %h1_i : i{cfg.width}
     func.return %1 : i{cfg.width}
   }}
 
@@ -78,7 +80,9 @@ module {{
     %clk_i1 = seq.from_clock %clk
     %x = comb.xor %a, %b : i{cfg.width}
     %masked = comb.mux %clk_i1, %x, %a : i{cfg.width}
-    %y = hwarith.cast %masked : (i{cfg.width}) -> i{cfg.width}
+    %h1 = hwarith.constant 1 : ui{cfg.width}
+    %h1_i = hwarith.cast %h1 : (ui{cfg.width}) -> i{cfg.width}
+    %y = comb.xor %masked, %h1_i : i{cfg.width}
     hw.output %y : i{cfg.width}
   }}
 }}
@@ -87,8 +91,8 @@ module {{
     with Context() as ctx, Location.unknown():
         circt.register_dialects(ctx)
         width_type = IntegerType.get_signless(cfg.width)
-        parsed_width_type: Type = Type.parse(f"i{cfg.width}")
-        if str(parsed_width_type) != str(width_type):
+        width_mlir_type: Type = width_type
+        if str(width_mlir_type) != f"i{cfg.width}":
             msg = "width type parsing mismatch"
             raise RuntimeError(msg)
 
