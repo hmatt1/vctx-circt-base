@@ -1,0 +1,15 @@
+name: Build Docker Base Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build base image
+        run: docker build -f docker/base/Dockerfile -t circt-hello-base:ci .
