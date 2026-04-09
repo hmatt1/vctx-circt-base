@@ -52,7 +52,7 @@ jobs:
 
   circt-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 360
     permissions:
       contents: read
       packages: read
@@ -71,18 +71,13 @@ jobs:
 
       - name: Resolve CIRCT base image
         run: |
-          for attempt in $(seq 1 10); do
-            if docker pull "$CIRCT_BASE_IMAGE"; then
-              echo "RESOLVED_CIRCT_IMAGE=$CIRCT_BASE_IMAGE" >> "$GITHUB_ENV"
-              exit 0
-            fi
+          if docker pull "$CIRCT_BASE_IMAGE"; then
+            echo "Using published image: $CIRCT_BASE_IMAGE"
+            echo "RESOLVED_CIRCT_IMAGE=$CIRCT_BASE_IMAGE" >> "$GITHUB_ENV"
+            exit 0
+          fi
 
-            echo "Image not available yet ($attempt/10): $CIRCT_BASE_IMAGE"
-            echo "Retrying in 60 seconds..."
-            sleep 60
-          done
-
-          echo "CIRCT base image still unavailable after retries."
+          echo "Published image unavailable ($CIRCT_BASE_IMAGE)."
           echo "Building local fallback image for this run..."
           docker build -f docker/base/Dockerfile -t "circt-fallback:${GITHUB_SHA}" .
           echo "RESOLVED_CIRCT_IMAGE=circt-fallback:${GITHUB_SHA}" >> "$GITHUB_ENV"
