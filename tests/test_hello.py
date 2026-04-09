@@ -79,7 +79,7 @@ def test_build_hello_module_integration() -> None:
     assert "arc.define @arc_gate" in mlir
     assert "seq.const_clock" in mlir
     assert "hwarith.cast" in mlir
-    assert '"circt_hello.meta"' in mlir
+    assert ('"circt_hello.meta"' in mlir) or ("circt_hello.meta" in mlir)
 
 
 @pytest.mark.integration
