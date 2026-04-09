@@ -75,6 +75,16 @@ def test_build_hello_module_integration() -> None:
     mlir = build_hello_module()
     assert "hw.module @magic" in mlir
     assert "comb.xor" in mlir
+    if "func_dialect_usable = 1" in mlir:
+        assert "func.func @mix_magic" in mlir
+    else:
+        assert "func.func @mix_magic" not in mlir
+    assert "arc.define @arc_gate" in mlir
+    assert "seq.const_clock" in mlir
+    assert "hwarith.cast" in mlir
+    assert ('"circt_hello.meta"' in mlir) or ("circt_hello.meta" in mlir)
+    assert "func_binding" in mlir
+    assert "func_dialect_usable" in mlir
 
 
 @pytest.mark.integration
@@ -82,3 +92,7 @@ def test_build_hello_module_custom_integration() -> None:
     mlir = build_hello_module(HelloConfig(width=8, module_name="hello"))
     assert "hw.module @hello" in mlir
     assert "i8" in mlir
+    if "func_dialect_usable = 1" in mlir:
+        assert "func.func @mix_hello" in mlir
+    else:
+        assert "func.func @mix_hello" not in mlir

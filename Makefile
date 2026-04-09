@@ -1,7 +1,9 @@
 SHELL := /usr/bin/env bash
 PYTHON ?= .venv/bin/python
 CIRCT_DIR ?= ./circt
-CIRCT_BASE_IMAGE ?= ghcr.io/$${GITHUB_OWNER:-$$(git config --get remote.origin.url | sed -E 's#.*github.com[:/ ]([^/]+)/.*#\1#')}/$$(basename -s .git $$(git config --get remote.origin.url))-circt-base:main
+GITHUB_OWNER ?= $(shell git config --get remote.origin.url | sed -E 's#.*github.com[:/]([^/]+)/.*#\1#')
+REPO_NAME ?= $(shell basename -s .git $$(git config --get remote.origin.url))
+CIRCT_BASE_IMAGE ?= ghcr.io/$(GITHUB_OWNER)/$(REPO_NAME)-circt-base:main
 
 .PHONY: bootstrap-python setup verify-free-threading install-circt lint typecheck test test-integration test-integration-container format run clean
 
