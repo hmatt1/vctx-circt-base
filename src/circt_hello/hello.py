@@ -145,6 +145,14 @@ module {{
             arc.__name__.split(".")[-1],
             hwarith.__name__.split(".")[-1],
         )
+        func_probe_text = "module { func.func @__func_probe() { func.return } }"
+        try:
+            Module.parse(func_probe_text)
+            func_dialect_usable = True
+        except Exception as exc:
+            if "Dialect `func' not found" not in str(exc):
+                raise
+            func_dialect_usable = False
         try:
             module = Module.parse(module_text_with_func)
         except Exception as exc:
@@ -170,6 +178,10 @@ module {{
                 "module_name": StringAttr.get(cfg.module_name),
                 "width": IntegerAttr.get(IntegerType.get_signless(32), cfg.width),
                 "dialects": ArrayAttr.get([StringAttr.get(name) for name in dialect_names]),
+                "func_binding": StringAttr.get(func.__name__),
+                "func_dialect_usable": IntegerAttr.get(
+                    IntegerType.get_signless(1), int(func_dialect_usable)
+                ),
                 "arc_symbol": FlatSymbolRefAttr.get("arc_gate"),
                 "note": note_attr,
             }
