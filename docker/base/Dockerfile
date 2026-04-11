@@ -69,9 +69,14 @@ RUN cmake -S llvm/llvm -B build-python -G Ninja \
     -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project \
   && cmake --build build-python --target install-CIRCTPythonModules -- -j"$(nproc)"
 
+RUN cmake --build build-python --target install-MLIRPythonModules -- -j"$(nproc)"
+
 RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
   && mkdir -p "$PY_SITE" \
   && printf '%s\n' '/opt/circt/install-python/python_packages/circt_core' > "$PY_SITE/circt_local.pth"
+
+RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
+  && printf '%s\n' '/opt/circt/install-python/python_packages/mlir_core' >> "$PY_SITE/circt_local.pth"
 
 RUN python3.14t -c "import sys, circt; print('CIRCT ready; gil enabled:', sys._is_gil_enabled())"
 
