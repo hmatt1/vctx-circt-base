@@ -7,10 +7,6 @@ on:
       - main
     paths:
       - docker/base/**
-      - scripts/bootstrap_python314t.sh
-      - scripts/install_circt_bindings.sh
-      - scripts/build_base_image.sh
-      - scripts/clone_circt.sh
       - .github/workflows/docker-base.yml
 
 jobs:

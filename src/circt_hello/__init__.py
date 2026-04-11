@@ -1,1 +1,0 @@
-"""CIRCT hello-world package."""
