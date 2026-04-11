@@ -4,6 +4,9 @@
     "context": "..",
     "dockerfile": "Dockerfile"
   },
+  "hostRequirements": {
+    "storage": "64gb"
+  },
   "workspaceFolder": "/workspace",
   "remoteEnv": {
     "PYTHON_GIL": "0"
