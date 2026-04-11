@@ -1,0 +1,22 @@
+{
+  "name": "vctx (CIRCT base)",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "remoteEnv": {
+    "PYTHON_GIL": "0"
+  },
+  "postCreateCommand": "python3.14t -m pip install --upgrade pip && python3.14t -m pip install -e '.[dev]'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/python-3.14t/bin/python3.14t"
+      }
+    }
+  }
+}
