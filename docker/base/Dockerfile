@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYTHON_VERSION=3.14.0
-ARG CIRCT_REPO=https://github.com/llvm/circt.git
+ARG CIRCT_REPO=https://github.com/hmatt1/circt.git
 ARG CIRCT_REF=main
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
