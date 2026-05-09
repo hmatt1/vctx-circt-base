@@ -11,7 +11,7 @@
   "remoteEnv": {
     "PYTHON_GIL": "0"
   },
-  "postCreateCommand": "python3.14t -m pip install --upgrade pip && python3.14t -m pip install -e '.[dev]'",
+  "postCreateCommand": "python3.14t -m pip install --upgrade pip",
   "customizations": {
     "vscode": {
       "extensions": [
