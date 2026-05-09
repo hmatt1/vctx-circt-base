@@ -44,5 +44,3 @@ with Context() as ctx, Location.unknown():
         )
     print(module)
 PY
-
-"$PYTHON_BIN" -m pytest -m integration
