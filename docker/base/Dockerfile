@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     libstdc++-13-dev \
     ca-certificates \
+    ccache \
     clang \
     cmake \
     curl \
@@ -22,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreadline-dev \
     libsqlite3-dev \
     libssl-dev \
+    lld \
     ninja-build \
     pkg-config \
     python3 \
@@ -55,6 +57,11 @@ RUN python3.14t -m pip install --upgrade pip setuptools wheel \
 
 RUN cmake -S llvm/llvm -B build-python -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    -DLLVM_ENABLE_LLD=ON \
     -DCMAKE_INSTALL_PREFIX=/opt/circt/install-python \
     -DLLVM_ENABLE_PROJECTS=mlir \
     -DLLVM_EXTERNAL_PROJECTS=circt \
