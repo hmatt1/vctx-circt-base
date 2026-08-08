@@ -9,15 +9,15 @@ on:
   workflow_dispatch:
 
 jobs:
-
   circt-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       contents: read
-      packages: read
+      packages: write
+      id-token: write
     env:
-      CIRCT_BASE_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-circt-base:main
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-circt-base
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +33,9 @@ jobs:
           docker-images: true
           swap-storage: true
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -40,18 +43,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve CIRCT base image
-        run: |
-          if docker pull "$CIRCT_BASE_IMAGE"; then
-            echo "Using published image: $CIRCT_BASE_IMAGE"
-            echo "RESOLVED_CIRCT_IMAGE=$CIRCT_BASE_IMAGE" >> "$GITHUB_ENV"
-            exit 0
-          fi
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=main,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=CIRCT base image
+            org.opencontainers.image.description=Prebuilt CIRCT + Python 3.14t (free-threaded) runtime for CI integration tests
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
-          echo "Published image unavailable ($CIRCT_BASE_IMAGE)."
-          echo "Building local fallback image for this run..."
-          docker build -f docker/base/Dockerfile -t "circt-fallback:${GITHUB_SHA}" .
-          echo "RESOLVED_CIRCT_IMAGE=circt-fallback:${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Cache BuildKit mounts
+        uses: actions/cache@v4
+        id: ccache
+        with:
+          path: /tmp/ccache
+          key: ${{ runner.os }}-buildkit-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildkit-ccache-
+
+      - name: Inject Cache into BuildKit
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        with:
+          cache-map: |
+            {
+              "ccache": "/tmp/ccache"
+            }
+          skip-extraction: ${{ steps.ccache.outputs.cache-hit }}
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/base/Dockerfile
+          load: true
+          tags: local-circt-base:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: CIRCT integration checks
         run: |
@@ -59,9 +91,20 @@ jobs:
             -e PYTHON_GIL=0 \
             -v "$PWD:/workspace" \
             -w /workspace \
-            "$RESOLVED_CIRCT_IMAGE" \
+            local-circt-base:test \
             bash -lc '
               set -euo pipefail
               python3.14t -m pip install --upgrade pip
               bash ./scripts/run_circt_integration.sh python3.14t
             '
+
+      - name: Push to GHCR
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/base/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
