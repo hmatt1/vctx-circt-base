@@ -1,11 +1,10 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG PYTHON_VERSION=3.14.0
-ARG CIRCT_REPO=https://github.com/llvm/circt.git
-ARG CIRCT_REF=main
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     g++ \
     libstdc++-13-dev \
@@ -35,6 +34,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
+FROM base AS builder
+
+ARG PYTHON_VERSION=3.14.0
+ARG CIRCT_REPO=https://github.com/llvm/circt.git
+ARG CIRCT_REF=main
+
 WORKDIR /opt
 RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" \
   && tar -xzf "Python-${PYTHON_VERSION}.tgz" \
@@ -55,7 +60,9 @@ RUN git clone --branch "${CIRCT_REF}" "${CIRCT_REPO}" . \
 RUN python3.14t -m pip install --upgrade pip setuptools wheel \
   && python3.14t -m pip install nanobind pyyaml numpy pybind11
 
-RUN cmake -S llvm/llvm -B build-python -G Ninja \
+ENV CCACHE_DIR=/ccache
+RUN --mount=type=cache,target=/ccache \
+    cmake -S llvm/llvm -B build-python -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
@@ -76,13 +83,22 @@ RUN cmake -S llvm/llvm -B build-python -G Ninja \
     -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project \
   && cmake --build build-python --target install-CIRCTPythonModules -- -j"$(nproc)"
 
-RUN cmake --build build-python --target install-MLIRPythonModules -- -j"$(nproc)"
+RUN --mount=type=cache,target=/ccache \
+    cmake --build build-python --target install-MLIRPythonModules -- -j"$(nproc)"
 
+FROM base AS final
+
+# Copy only the compiled python and circt binaries from the builder stage
+COPY --from=builder /opt/python-3.14t /opt/python-3.14t
+COPY --from=builder /opt/circt/install-python /opt/circt/install-python
+
+ENV PATH="/opt/python-3.14t/bin:${PATH}"
+ENV PYTHON_GIL=0
+
+# Configure site-packages so python can find circt and mlir
 RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
   && mkdir -p "$PY_SITE" \
-  && printf '%s\n' '/opt/circt/install-python/python_packages/circt_core' > "$PY_SITE/circt_local.pth"
-
-RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
+  && printf '%s\n' '/opt/circt/install-python/python_packages/circt_core' > "$PY_SITE/circt_local.pth" \
   && printf '%s\n' '/opt/circt/install-python/python_packages/mlir_core' >> "$PY_SITE/circt_local.pth"
 
 RUN python3.14t -c "import sys, circt; print('CIRCT ready; gil enabled:', sys._is_gil_enabled())"
