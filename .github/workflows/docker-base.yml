@@ -58,6 +58,24 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
+      - name: Cache BuildKit mounts
+        uses: actions/cache@v4
+        id: ccache
+        with:
+          path: /tmp/ccache
+          key: ${{ runner.os }}-buildkit-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildkit-ccache-
+
+      - name: Inject Cache into BuildKit
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        with:
+          cache-map: |
+            {
+              "ccache": "/tmp/ccache"
+            }
+          skip-extraction: ${{ steps.ccache.outputs.cache-hit }}
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:

@@ -61,7 +61,7 @@ RUN python3.14t -m pip install --upgrade pip setuptools wheel \
   && python3.14t -m pip install nanobind pyyaml numpy pybind11
 
 ENV CCACHE_DIR=/ccache
-RUN --mount=type=cache,target=/ccache \
+RUN --mount=type=cache,id=ccache,target=/ccache \
     cmake -S llvm/llvm -B build-python -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_COMPILER=clang \
@@ -83,7 +83,7 @@ RUN --mount=type=cache,target=/ccache \
     -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project \
   && cmake --build build-python --target install-CIRCTPythonModules -- -j"$(nproc)"
 
-RUN --mount=type=cache,target=/ccache \
+RUN --mount=type=cache,id=ccache,target=/ccache \
     cmake --build build-python --target install-MLIRPythonModules -- -j"$(nproc)"
 
 FROM base AS final
