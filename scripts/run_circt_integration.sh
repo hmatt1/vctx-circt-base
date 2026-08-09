@@ -8,6 +8,11 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Checking FPGA toolchain..."
+yosys -V
+nextpnr-himbaechel -V
+gowin_pack -V
+
 "$PYTHON_BIN" - <<'PY'
 import sys
 import sysconfig
