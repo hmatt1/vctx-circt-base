@@ -86,11 +86,15 @@ RUN --mount=type=cache,id=ccache,target=/ccache \
 RUN --mount=type=cache,id=ccache,target=/ccache \
     cmake --build build-python --target install-MLIRPythonModules -- -j"$(nproc)"
 
+RUN --mount=type=cache,id=ccache,target=/ccache \
+    cmake --build build-python --target arcilator -- -j"$(nproc)"
+
 FROM base AS final
 
 # Copy only the compiled python and circt binaries from the builder stage
 COPY --from=builder /opt/python-3.14t /opt/python-3.14t
 COPY --from=builder /opt/circt/install-python /opt/circt/install-python
+COPY --from=builder /opt/circt/build-python/bin/arcilator /usr/local/bin/arcilator
 
 ENV PATH="/opt/python-3.14t/bin:${PATH}"
 ENV PYTHON_GIL=0
