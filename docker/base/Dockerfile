@@ -39,6 +39,7 @@ FROM base AS builder
 ARG PYTHON_VERSION=3.14.0
 ARG CIRCT_REPO=https://github.com/llvm/circt.git
 ARG CIRCT_REF=main
+ARG OSS_CAD_SUITE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-05-23/oss-cad-suite-linux-x64-20240523.tgz
 
 WORKDIR /opt
 RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" \
@@ -48,6 +49,10 @@ RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PY
   && make -j"$(nproc)" \
   && make install \
   && ln -sf /opt/python-3.14t/bin/python3.14 /opt/python-3.14t/bin/python3.14t
+
+RUN curl -fsSL "${OSS_CAD_SUITE_URL}" -o oss-cad-suite.tgz \
+  && tar -xzf oss-cad-suite.tgz \
+  && rm oss-cad-suite.tgz
 
 ENV PATH="/opt/python-3.14t/bin:${PATH}"
 ENV PYTHON_GIL=0
@@ -95,8 +100,9 @@ FROM base AS final
 COPY --from=builder /opt/python-3.14t /opt/python-3.14t
 COPY --from=builder /opt/circt/install-python /opt/circt/install-python
 COPY --from=builder /opt/circt/build-python/bin/arcilator /usr/local/bin/arcilator
+COPY --from=builder /opt/oss-cad-suite /opt/oss-cad-suite
 
-ENV PATH="/opt/python-3.14t/bin:${PATH}"
+ENV PATH="/opt/python-3.14t/bin:/opt/oss-cad-suite/bin:${PATH}"
 ENV PYTHON_GIL=0
 
 # Configure site-packages so python can find circt and mlir
