@@ -11,7 +11,7 @@ fi
 echo "Checking FPGA toolchain..."
 yosys -V
 nextpnr-himbaechel -V
-gowin_pack -V
+command -v gowin_pack
 
 "$PYTHON_BIN" - <<'PY'
 import sys
