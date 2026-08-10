@@ -39,7 +39,7 @@ FROM base AS builder
 ARG PYTHON_VERSION=3.14.0
 ARG CIRCT_REPO=https://github.com/llvm/circt.git
 ARG CIRCT_REF=main
-ARG OSS_CAD_SUITE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-05-23/oss-cad-suite-linux-x64-20240523.tgz
+ARG OSS_CAD_SUITE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2026-08-09/oss-cad-suite-linux-x64-20260809.tgz
 
 WORKDIR /opt
 RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" \
