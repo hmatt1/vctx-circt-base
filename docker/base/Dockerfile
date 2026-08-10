@@ -39,8 +39,6 @@ FROM base AS builder
 ARG PYTHON_VERSION=3.14.0
 ARG CIRCT_REPO=https://github.com/llvm/circt.git
 ARG CIRCT_REF=main
-ARG OSS_CAD_SUITE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2026-08-09/oss-cad-suite-linux-x64-20260809.tgz
-
 WORKDIR /opt
 RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" \
   && tar -xzf "Python-${PYTHON_VERSION}.tgz" \
@@ -49,10 +47,6 @@ RUN curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PY
   && make -j"$(nproc)" \
   && make install \
   && ln -sf /opt/python-3.14t/bin/python3.14 /opt/python-3.14t/bin/python3.14t
-
-RUN curl -fsSL "${OSS_CAD_SUITE_URL}" -o oss-cad-suite.tgz \
-  && tar -xzf oss-cad-suite.tgz \
-  && rm oss-cad-suite.tgz
 
 ENV PATH="/opt/python-3.14t/bin:${PATH}"
 ENV PYTHON_GIL=0
@@ -93,6 +87,12 @@ RUN --mount=type=cache,id=ccache,target=/ccache \
 
 RUN --mount=type=cache,id=ccache,target=/ccache \
     cmake --build build-python --target arcilator -- -j"$(nproc)"
+
+ARG OSS_CAD_SUITE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2026-08-09/oss-cad-suite-linux-x64-20260809.tgz
+WORKDIR /opt
+RUN curl -fsSL "${OSS_CAD_SUITE_URL}" -o oss-cad-suite.tgz \
+  && tar -xzf oss-cad-suite.tgz \
+  && rm oss-cad-suite.tgz
 
 FROM base AS final
 
