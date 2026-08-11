@@ -113,4 +113,7 @@ RUN PY_SITE=$(python3.14t -c 'import site; print(site.getsitepackages()[0])') \
 
 RUN python3.14t -c "import sys, circt; print('CIRCT ready; gil enabled:', sys._is_gil_enabled())"
 
+# Install optional dependencies for apycula (Gowin bitstream packing)
+RUN /opt/oss-cad-suite/bin/python3 -m pip install numpy msgspec fastcrc
+
 WORKDIR /workspace
